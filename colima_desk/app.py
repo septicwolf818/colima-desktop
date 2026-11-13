@@ -211,6 +211,8 @@ class ColimaDeskApp(QObject):
                 self.images_loaded.emit([])
                 self.compose_projects_loaded.emit([])
 
+
+
         def _on_err(err):
             self._state = ColimaState(running=False, error=str(err))
             self.state_changed.emit(self._state)
@@ -334,6 +336,9 @@ class ColimaDeskApp(QObject):
     def refresh_all(self) -> None:
         self.refresh_state()
         self.refresh_profiles()
+        self.refresh_containers()
+        self.refresh_images()
+        self.refresh_compose_projects()
 
     # ── lifecycle ops ─────────────────────────────────────────────────────
 

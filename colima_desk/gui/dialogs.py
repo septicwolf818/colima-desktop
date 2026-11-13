@@ -444,6 +444,9 @@ class LogsDialog(QDialog):
         self._last_body = None
 
     def _fetch(self, tail=None) -> None:
+        # Preserve the follow state before stopping any stream so we can
+        # restore it after the fetch completes.
+        self._was_following = self._follow.isChecked()
         # Manual refresh: stop streaming first.
         if self._streaming:
             self._stop_stream()
@@ -468,8 +471,13 @@ class LogsDialog(QDialog):
         if self._services:
             body = self._colorize_body(body)
         body = sort_log_lines(body or "(no logs)")
-        # Skip redundant updates to avoid flicker.
+        # Skip redundant updates to avoid flicker — but still restore follow.
         if body == self._last_body:
+            # Restore follow state before returning.
+            if getattr(self, "_was_following", False):
+                del self._was_following
+                self._follow.setChecked(True)
+                self._on_follow_toggled(True)
             return
         self._last_body = body
         sb = self._text.verticalScrollBar()
@@ -484,6 +492,13 @@ class LogsDialog(QDialog):
         # position alone so we never yank them back.
         if at_bottom:
             sb.setValue(sb.maximum())
+
+        # Restore follow state that was active before the fetch (e.g. "Load
+        # All" temporarily disables streaming; restore it when done).
+        if getattr(self, "_was_following", False):
+            del self._was_following
+            self._follow.setChecked(True)
+            self._on_follow_toggled(True)
 
     def closeEvent(self, event) -> None:
         self._timer.stop()

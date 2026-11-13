@@ -67,7 +67,8 @@ class ImagesPanel(BasePanel):
             QMessageBox.No,
         ):
             return
-        self._app.remove_image(ref.repository, force=(ref.containers > 0))
+        image_ref = f"{ref.repository}:{ref.tag}" if ref.tag and ref.tag != "<none>" else ref.repository
+        self._app.remove_image(image_ref, force=(ref.containers > 0))
 
     def _on_cell_double_clicked(self, row: int, _col: int) -> None:
         ref = self._row_to_ref.get(row)
