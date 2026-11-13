@@ -397,14 +397,20 @@ def main() -> int:
     controller.log("\x1b[36mColima Desktop ready.\x1b[0m")
     controller.refresh_all()
 
-    # Poll state + stats periodically.
+    # Poll state + stats periodically. Keep references on the controller so
+    # they can be stopped cleanly on quit (avoids "exited unexpectedly").
     from PySide6.QtCore import QTimer
-    state_timer = QTimer()
+    state_timer = QTimer(controller)
     state_timer.timeout.connect(controller.refresh_state)
     state_timer.start(max(1000, int(controller.config.poll_interval * 1000)))
-    stats_timer = QTimer()
+    stats_timer = QTimer(controller)
     stats_timer.timeout.connect(controller.refresh_container_stats)
     stats_timer.start(3000)
+    controller._state_timer = state_timer
+    controller._stats_timer = stats_timer
+
+    # Ensure clean teardown when the event loop exits.
+    app.aboutToQuit.connect(controller._teardown)
 
     return app.exec()
 

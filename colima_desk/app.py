@@ -600,8 +600,53 @@ class ColimaDeskApp(QObject):
             self._window.raise_()
             self._window.activateWindow()
 
+    def _teardown(self) -> None:
+        """Clean up threads/timers so macOS doesn't report an unexpected exit."""
+        if getattr(self, "_shutting_down", False):
+            return
+        self._shutting_down = True
+        # Stop periodic timers.
+        for attr in ("_state_timer", "_stats_timer"):
+            t = getattr(self, attr, None)
+            if t is not None:
+                try:
+                    t.stop()
+                except Exception:
+                    pass
+        # Stop any active log streamers in open dialogs.
+        try:
+            from PySide6.QtWidgets import QApplication
+            for w in QApplication.topLevelWidgets():
+                stop = getattr(w, "_stop_stream", None)
+                if callable(stop):
+                    try:
+                        stop()
+                    except Exception:
+                        pass
+                # Close dialogs (they stop their own timers in closeEvent).
+                if w is not self._window and w is not None:
+                    try:
+                        w.close()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        # Wait for worker threads to finish (with a timeout), then terminate
+        # any stragglers so the interpreter doesn't crash during teardown.
+        for w in list(self._workers):
+            try:
+                if w.isRunning():
+                    w.wait(3000)
+                    if w.isRunning():
+                        w.terminate()
+                        w.wait(1000)
+            except Exception:
+                pass
+        self._workers.clear()
+
     def quit(self) -> None:
         self.log("\x1b[33mColima Desktop shutting down…\x1b[0m")
+        self._teardown()
         if self._window is not None:
             self._window.close()
         if self._tray is not None:
