@@ -453,8 +453,14 @@ class LogsDialog(QDialog):
             self._follow.blockSignals(True)
             self._follow.setChecked(False)
             self._follow.blockSignals(False)
-        t = tail if tail is not None else self._current_tail
-        self._current_tail = t
+        # "Load all" is a one-shot full fetch; never let "all" become the
+        # persistent polling tail (otherwise polling re-fetches everything).
+        if tail is None:
+            t = self._current_tail
+        else:
+            t = tail
+        if t != "all":
+            self._current_tail = t
         self._load_all_btn.setEnabled(t != "all")
         service = self._selector.currentData() if self._selector is not None else None
         self._app.set_logs_handler(self._on_logs)
@@ -476,8 +482,11 @@ class LogsDialog(QDialog):
             # Restore follow state before returning.
             if getattr(self, "_was_following", False):
                 del self._was_following
+                self._follow.blockSignals(True)
                 self._follow.setChecked(True)
+                self._follow.blockSignals(False)
                 self._on_follow_toggled(True)
+            self._load_all_btn.setEnabled(self._current_tail != "all")
             return
         self._last_body = body
         sb = self._text.verticalScrollBar()
@@ -497,8 +506,11 @@ class LogsDialog(QDialog):
         # All" temporarily disables streaming; restore it when done).
         if getattr(self, "_was_following", False):
             del self._was_following
+            self._follow.blockSignals(True)
             self._follow.setChecked(True)
+            self._follow.blockSignals(False)
             self._on_follow_toggled(True)
+        self._load_all_btn.setEnabled(self._current_tail != "all")
 
     def closeEvent(self, event) -> None:
         self._timer.stop()
