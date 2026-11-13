@@ -1,18 +1,30 @@
 # Colima Desktop
 
-A Docker-Desktop-style management application for **Colima**, branded for Colima.
-Manage Colima profiles, containers, and images from a single cross-platform
-GUI. Runs on **macOS** and **Linux**.
+A Docker-Desktop-style management application for **Colima**. Manage Colima
+profiles, containers, images and Compose stacks from a single cross-platform
+GUI. Runs on **macOS** and **Linux** (Windows best-effort).
 
 ## Features
 
-- **Profiles (projects)** — list, start, stop, restart, delete Colima profiles.
-- **Containers** — list (with live CPU/memory, ports, and a Project column), start, stop, remove, view logs.
-- **Compose Stacks** — group containers by compose project/folder; start/stop/take-down a whole stack.
-- **Images** — list, pull, remove.
+- **Profiles** — list, start, stop, restart, delete Colima profiles; edit
+  CPU/memory/disk/Kubernetes options via the profile editor.
+- **Containers** — list (with live CPU/memory, ports, size and a Project
+  column), start, stop, remove, view logs.
+- **Compose Stacks** — group containers by compose project; start/stop/take
+  down a whole stack; per-stack logs with a service selector.
+- **Images** — list, pull, remove (with in-use warning).
+- **Logs viewers** — container and compose logs with live follow, per-service
+  colouring (16-colour palette), timestamps, sort-by-timestamp, scroll-to-
+  bottom-only-if-at-bottom, refresh and "load all".
+- **Settings dialog** — default profile, start args, auto-start on launch,
+  poll interval; changes apply via restart.
 - **System tray applet** — cross-platform tray (macOS menu bar / Linux system
-  tray) showing status, with quick start/stop and shortcuts into the main window.
-- **Top status bar** — live Colima state, runtime, aggregate CPU/RAM.
+  tray) showing status, with quick start/stop/restart/refresh and panel
+  shortcuts.
+- **Top status bar** — live Colima state, runtime, aggregate CPU/RAM usage.
+- **Bottom terminal** — app-level logs plus streamed command output for
+  action operations.
+- **Persistence** — window geometry, sidebar selection, settings.
 
 ## Tech stack
 
@@ -24,7 +36,7 @@ GUI. Runs on **macOS** and **Linux**.
 ## Setup (with a local venv)
 
 ```bash
-make setup       # creates .venv and installs PySide6
+make setup       # creates .venv and installs dependencies
 make run         # launch the app
 ```
 
@@ -36,22 +48,37 @@ python3 -m venv .venv
 .venv/bin/python -m colima_desk
 ```
 
-## Packaging (optional)
-
-The project is structured as a normal Python application and can later be
-bundled as a macOS `.app` or a Linux binary (e.g. with PyInstaller):
+## Packaging
 
 ```bash
-# (future)
-.venv/bin/pip install pyinstaller
-.venv/bin/pyinstaller --windowed --name "Colima Desktop" colima_desk/__main__.py
+make package        # macOS .app  -> dist/Colima Desktop.app
+make package-linux  # Linux binary via a containerized PyInstaller build
 ```
+
+The macOS build produces a signed-ish `.app` with the bundled icon; the Linux
+build installs the required runtime libraries inside a container.
 
 ## Configuration
 
-Start options (extra args passed to `colima start`) and the default profile
-are persisted to `~/.config/colima-desk/config.json` (macOS/Linux) and can be
-edited from the in-app Settings dialog or the tray menu.
+Start options (extra args passed to `colima start`), the default profile,
+auto-start on launch and the poll interval are persisted to:
+
+- macOS: `~/Library/Application Support/colima-desk/config.json`
+- Linux: `~/.config/colima-desk/config.json`
+- Windows: `%APPDATA%/colima-desk/config.json`
+
+They can be edited from the in-app Settings dialog (Preferences) or the tray
+menu.
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl/Cmd + R`, `F5` | Refresh |
+| `Ctrl/Cmd + ,` | Settings |
+| `Ctrl/Cmd + Q` | Quit |
+| `Enter` (on a table row) | Open the row's primary action (e.g. logs) |
+| Double-click (table row) | Open logs / edit profile |
 
 ## Architecture (OOP)
 
@@ -60,17 +87,21 @@ colima_desk/
 ├── app.py                 # ColimaDeskApp controller (QObject)
 ├── models.py              # pure dataclasses
 ├── config.py              # JSON config store
+├── _paths.py              # PATH augmentation (shared by both entry points)
 ├── engine/                # pure-Python, GUI-agnostic
-│   ├── colima_engine.py   # lifecycle + profiles
+│   ├── colima_engine.py   # lifecycle + profiles + config read/write
 │   ├── container_service.py
 │   └── image_service.py
 └── gui/                   # PySide6 presentation layer
     ├── main_window.py
     ├── status_bar.py
     ├── tray.py            # QSystemTrayIcon applet
-    ├── async_worker.py    # Worker thread
+    ├── dialogs.py         # logs, profile editor, settings
+    ├── fonts.py           # shared monospace font helper
     ├── resources.py       # programmatic icons
-    └── panels/            # containers / images / profiles
+    ├── panels/            # containers / images / compose / profiles
+    └── base_panel.py
+colima_desk_entry.py       # PyInstaller entry point
 ```
 
 The engine never imports Qt; the GUI never calls subprocess directly. All
