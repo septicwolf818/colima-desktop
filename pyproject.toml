@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "colima_desk"
+version = "0.1.0"
+description = "A Docker-Desktop-style management app for Colima (containers, images, profiles)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "colima-desk" }]
+dependencies = [
+    "PySide6>=6.5",
+]
+
+[project.scripts]
+colima-desk = "colima_desk.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["colima_desk*"]
